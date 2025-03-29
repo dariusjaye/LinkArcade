@@ -1,17 +1,24 @@
 "use client";
 
 import React, { createContext, useEffect, useState } from "react";
-import { signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from "firebase/auth";
 import { User } from "firebase/auth";
-import { auth } from "../firebase/firebase";
+
+// Create a mock User type matching Firebase User structure
+interface MockUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: MockUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
+// Initial auth context value
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
@@ -20,37 +27,56 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<MockUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Simulate auth loading
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
+    const timer = setTimeout(() => {
       setLoading(false);
-    });
-
-    return () => unsubscribe();
+    }, 1000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
+  // Mock Google sign in
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Error signing in with Google", error);
-    }
+    // Create a mock user
+    const mockUser: MockUser = {
+      uid: "mock-user-123",
+      email: "user@example.com",
+      displayName: "Demo User",
+      photoURL: "https://ui-avatars.com/api/?name=Demo+User&background=random",
+    };
+    
+    setUser(mockUser);
+    
+    // Store in local storage to persist between refreshes
+    localStorage.setItem("mockUser", JSON.stringify(mockUser));
   };
 
-  const signOutUser = async () => {
-    try {
-      await firebaseSignOut(auth);
-    } catch (error) {
-      console.error("Error signing out", error);
+  // Check for existing user in localStorage on mount
+  useEffect(() => {
+    const storedUser = localStorage.getItem("mockUser");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
     }
+    setLoading(false);
+  }, []);
+
+  // Sign out
+  const signOutUser = async () => {
+    setUser(null);
+    localStorage.removeItem("mockUser");
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut: signOutUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      signInWithGoogle, 
+      signOut: signOutUser 
+    }}>
       {children}
     </AuthContext.Provider>
   );

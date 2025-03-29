@@ -31,3 +31,20 @@ body {
     text-wrap: balance;
   }
 }
+
+/* Slots Game Line Animations */
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.5); }
+}
+
+/* Additional animation for line drawing effect */
+@keyframes drawLine {
+  0% { stroke-dashoffset: 1000; }
+  100% { stroke-dashoffset: 0; }
+}
