@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { signUpWithEmail } from '@/lib/firebase/firebaseUtils';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -11,18 +13,16 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   const router = useRouter();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   
   // Check if user is already logged in
   useEffect(() => {
-    const storedUser = localStorage.getItem('mockUser');
-    if (storedUser) {
-      setIsLoggedIn(true);
+    if (user) {
       router.push('/');
     }
-  }, [router]);
+  }, [user, router]);
   
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,10 +37,12 @@ export default function RegisterPage() {
     }
     
     try {
-      // Mock registration using Google auth
-      await handleGoogleRegister();
+      // Create display name from email
+      const displayName = email.split('@')[0];
+      await signUpWithEmail(email, password, displayName);
       router.push('/');
     } catch (err: any) {
+      console.error('Registration error:', err);
       setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
@@ -52,37 +54,17 @@ export default function RegisterPage() {
     setError('');
     
     try {
-      // Create a mock user
-      const mockUser = {
-        uid: "mock-user-123",
-        email: email || "user@example.com",
-        displayName: email?.split('@')[0] || "Demo User",
-        photoURL: "https://ui-avatars.com/api/?name=Demo+User&background=random",
-      };
-      
-      // Store user in localStorage
-      localStorage.setItem('mockUser', JSON.stringify(mockUser));
-      
-      // Initialize balance
-      if (!localStorage.getItem('balance')) {
-        localStorage.setItem('balance', '100');
-      }
-      
-      // Initialize transactions
-      if (!localStorage.getItem('transactions')) {
-        localStorage.setItem('transactions', JSON.stringify([]));
-      }
-      
-      setIsLoggedIn(true);
+      await signInWithGoogle();
       router.push('/');
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in with Google');
+      console.error('Google signup error:', err);
+      setError(err.message || 'Failed to sign up with Google');
     } finally {
       setLoading(false);
     }
   };
   
-  if (isLoggedIn) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950">
         <div className="w-6 h-6 border-2 border-pink-500 rounded-full animate-spin border-t-transparent"></div>

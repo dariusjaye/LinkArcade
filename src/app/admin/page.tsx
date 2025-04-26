@@ -2,10 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/Button';
 import { SiteSettingsProvider } from '@/lib/contexts/SiteSettingsContext';
+import AdminInitDatabase from '@/components/AdminInitDatabase';
+import InitializeAllCollections from '@/components/InitializeAllCollections';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { doc, getDoc } from 'firebase/firestore';
+import firebase from '@/lib/firebase/firebase';
 
 // Dynamic import with SSR disabled
 import dynamic from 'next/dynamic';
@@ -19,61 +25,87 @@ const SiteSettingsPanel = dynamic(
   { ssr: false }
 );
 
-export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('games');
+// Tab interfaces
+interface UserRole {
+  admin: boolean;
+}
 
-  // Set up a mock admin user
-  const setupAdminUser = () => {
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      // Make sure the user has admin role
-      if (!user.roles || !user.roles.includes('admin')) {
-        user.roles = ['user', 'admin'];
-        localStorage.setItem('user', JSON.stringify(user));
+export default function AdminPage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [siteSettings, setSiteSettings] = useState({});
+  const [gameSettings, setGameSettings] = useState([]);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  
+  // Admin authentication check
+  useEffect(() => {
+    const checkAdminRole = async () => {
+      if (!authLoading) {
+        if (!user) {
+          // Not logged in, redirect to login
+          router.push('/login');
+          return;
+        }
+        
+        // Check if user has admin role
+        try {
+          if (firebase.safeDb) {
+            const roleDoc = await getDoc(doc(firebase.db, 'userRoles', user.uid));
+            if (roleDoc.exists()) {
+              const roleData = roleDoc.data() as UserRole;
+              setUserRole(roleData);
+              
+              if (!roleData.admin) {
+                // User is logged in but not an admin
+                router.push('/');
+              }
+            } else {
+              // No role document, assume not admin
+              router.push('/');
+            }
+          } else {
+            // Firebase DB not available
+            router.push('/');
+          }
+        } catch (error) {
+          console.error('Error checking admin role:', error);
+          router.push('/');
+        }
+        
+        setIsLoading(false);
       }
-    } else {
-      // Create admin user if no user exists
-      const adminUser = {
-        id: 'admin-123',
-        email: 'admin@example.com',
-        username: 'Admin',
-        photoURL: null,
-        roles: ['user', 'admin'],
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem('user', JSON.stringify(adminUser));
-      
-      // Also initialize a balance for this user
-      localStorage.setItem('balance', JSON.stringify({
-        amount: 1000,
-        currency: 'USD',
-        user_id: 'admin-123'
-      }));
+    };
+    
+    checkAdminRole();
+  }, [user, authLoading, router]);
+  
+  useEffect(() => {
+    // Load saved settings from localStorage for demo
+    const savedSettings = localStorage.getItem('adminSiteSettings');
+    if (savedSettings) {
+      setSiteSettings(JSON.parse(savedSettings));
+    }
+    
+    const savedGames = localStorage.getItem('adminGameSettings');
+    if (savedGames) {
+      setGameSettings(JSON.parse(savedGames));
+    }
+  }, []);
+  
+  const saveSettings = (type: string, data: any) => {
+    if (type === 'site') {
+      localStorage.setItem('adminSiteSettings', JSON.stringify(data));
+      setSiteSettings(data);
+    } else if (type === 'games') {
+      localStorage.setItem('adminGameSettings', JSON.stringify(data));
+      setGameSettings(data);
     }
   };
 
-  useEffect(() => {
-    // Set up mock admin user for demo
-    setupAdminUser();
-    
-    // Check if user is authenticated and has admin role
-    const storedUser = localStorage.getItem('user');
-    
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      if (user.roles && user.roles.includes('admin')) {
-        setIsAuthenticated(true);
-      }
-    }
-    
-    setIsLoading(false);
-  }, []);
-
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white">
         <Header />
@@ -85,7 +117,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user || !userRole?.admin) {
     return (
       <div className="min-h-screen bg-gray-900 text-white">
         <Header />
@@ -140,6 +172,12 @@ export default function AdminPage() {
               onClick={() => setActiveTab('site')}
             >
               Site Settings
+            </Button>
+            <Button
+              variant={activeTab === 'database' ? "default" : "outline"}
+              onClick={() => setActiveTab('database')}
+            >
+              Database
             </Button>
           </nav>
         </div>
@@ -297,6 +335,20 @@ export default function AdminPage() {
             <SiteSettingsProvider>
               <SiteSettingsPanel />
             </SiteSettingsProvider>
+          )}
+          
+          {activeTab === 'database' && (
+            <div>
+              <h2 className="text-xl font-bold mb-4">Database Management</h2>
+              <p className="text-gray-400 mb-6">
+                Initialize and manage the Firebase Firestore database
+              </p>
+              
+              <div className="space-y-8">
+                <AdminInitDatabase />
+                <InitializeAllCollections />
+              </div>
+            </div>
           )}
         </div>
       </main>

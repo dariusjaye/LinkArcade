@@ -2,7 +2,7 @@
 
 import React, { createContext, useEffect, useState } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase/firebase";
+import firebase, { auth } from "../firebase/firebase";
 import { signInWithGoogle as firebaseSignInWithGoogle, logoutUser } from "../firebase/firebaseUtils";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/firebase";
@@ -22,6 +22,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  error: Error | null;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -31,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
   loading: true,
+  error: null,
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
@@ -39,17 +41,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  // Check if Firebase is available
+  const [isFirebaseAvailable, setIsFirebaseAvailable] = useState<boolean>(
+    Boolean(firebase.safeAuth && firebase.safeDb)
+  );
 
   // Fetch or create user profile on user change
   useEffect(() => {
     const fetchOrCreateUserProfile = async () => {
-      if (!user) {
+      if (!user || !isFirebaseAvailable || !firebase.safeDb) {
         setUserProfile(null);
         return;
       }
 
       try {
-        const userDocRef = doc(db, "users", user.uid);
+        const userDocRef = doc(firebase.db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
@@ -79,42 +87,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error("Error fetching or creating user profile:", error);
+        setError(error instanceof Error ? error : new Error("Failed to fetch user profile"));
       }
     };
 
     fetchOrCreateUserProfile();
-  }, [user]);
+  }, [user, isFirebaseAvailable]);
 
   // Setup auth state listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-      setUser(authUser);
+    // Check if Firebase Auth is available
+    if (!isFirebaseAvailable || !firebase.safeAuth) {
       setLoading(false);
-    });
+      setError(new Error("Firebase authentication is not available"));
+      return () => {};
+    }
 
-    // Cleanup subscription
-    return () => unsubscribe();
-  }, []);
+    try {
+      const unsubscribe = onAuthStateChanged(firebase.auth, async (authUser) => {
+        setUser(authUser);
+        setLoading(false);
+      }, (error) => {
+        console.error("Auth state change error:", error);
+        setError(error instanceof Error ? error : new Error("Authentication error"));
+        setLoading(false);
+      });
+
+      // Cleanup subscription
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error setting up auth state listener:", error);
+      setError(error instanceof Error ? error : new Error("Failed to initialize authentication"));
+      setLoading(false);
+      return () => {};
+    }
+  }, [isFirebaseAvailable]);
 
   // Sign in with Google
   const signInWithGoogle = async () => {
+    if (!isFirebaseAvailable) {
+      throw new Error("Firebase authentication is not available");
+    }
+
     try {
+      setError(null);
       await firebaseSignInWithGoogle();
       // User state will be updated by the auth state listener
     } catch (error) {
       console.error("Error signing in with Google:", error);
+      setError(error instanceof Error ? error : new Error("Failed to sign in with Google"));
       throw error;
     }
   };
 
   // Sign out
   const signOutUser = async () => {
+    if (!isFirebaseAvailable) {
+      throw new Error("Firebase authentication is not available");
+    }
+
     try {
+      setError(null);
       await logoutUser();
       // User state will be updated by the auth state listener
       setUserProfile(null);
     } catch (error) {
       console.error("Error signing out:", error);
+      setError(error instanceof Error ? error : new Error("Failed to sign out"));
       throw error;
     }
   };
@@ -124,6 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       userProfile,
       loading, 
+      error,
       signInWithGoogle, 
       signOut: signOutUser 
     }}>

@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/Button';
 import { useSiteSettings } from '@/lib/contexts/SiteSettingsContext';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface FeaturedGame {
   id: string;
@@ -23,20 +24,11 @@ interface FeaturedGame {
 }
 
 export default function Home() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('');
   const [featuredGames, setFeaturedGames] = useState<FeaturedGame[]>([]);
   const { settings } = useSiteSettings();
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Check authentication
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      setIsAuthenticated(true);
-      setUsername(user.username || 'User');
-    }
-
     // Load featured games from localStorage if available
     const storedGames = localStorage.getItem('adminGameSettings');
     
@@ -118,7 +110,7 @@ export default function Home() {
                 {settings.heroSubtitle}
               </p>
               <div className="flex flex-wrap justify-center gap-4">
-                {isAuthenticated ? (
+                {user ? (
                   <Link href="/games">
                     <Button variant="default" size="lg">
                       Start Playing
@@ -279,7 +271,7 @@ export default function Home() {
             <p className="text-xl mb-8 max-w-2xl mx-auto">
               Join LinkArcade today and turn your rewards into exciting gaming experiences and real cash prizes
             </p>
-            {isAuthenticated ? (
+            {user ? (
               <Link href="/games">
                 <Button variant="default" size="lg" className="bg-white text-pink-600 hover:bg-gray-100">
                   Start Playing Now

@@ -1,32 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSiteSettings } from '@/lib/contexts/SiteSettingsContext';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 export default function Header() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userData, setUserData] = useState({
-    displayName: 'Demo User',
-    email: 'user@example.com',
-    photoURL: 'https://ui-avatars.com/api/?name=Demo+User&background=random'
-  });
-  const [balance, setBalance] = useState('$100.00');
+  const { user, userProfile, loading: authLoading, error: authError, signOut } = useAuth();
   const { settings } = useSiteSettings();
-  
-  // Check if user is logged in from localStorage on component mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem('mockUser');
-    if (storedUser) {
-      setIsLoggedIn(true);
-      setUserData(JSON.parse(storedUser));
-    }
-  }, []);
+  const router = useRouter();
   
   // Handle sign out
-  const handleSignOut = () => {
-    localStorage.removeItem('mockUser');
-    setIsLoggedIn(false);
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return (
@@ -60,22 +52,26 @@ export default function Header() {
         </div>
         
         <div className="flex items-center space-x-4">
-          {isLoggedIn ? (
+          {authLoading ? (
+            <div className="w-6 h-6 border-2 border-pink-500 rounded-full animate-spin border-t-transparent"></div>
+          ) : user ? (
             <div className="flex items-center space-x-4">
               <Link href="/profile" className={`flex items-center space-x-2 hover:text-${settings.primaryColor}-400 transition`}>
                 <div className={`w-8 h-8 rounded-full bg-${settings.primaryColor}-600 flex items-center justify-center overflow-hidden`}>
-                  {userData.photoURL ? (
-                    <img src={userData.photoURL} alt={userData.displayName || 'User'} className="w-full h-full object-cover" />
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt={user.displayName || 'User'} className="w-full h-full object-cover" />
                   ) : (
-                    <span>{userData.displayName?.charAt(0) || userData.email?.charAt(0) || 'U'}</span>
+                    <span>{user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}</span>
                   )}
                 </div>
                 <span className="hidden md:inline">
-                  {userData.displayName || userData.email?.split('@')[0] || 'User'}
+                  {user.displayName || user.email?.split('@')[0] || 'User'}
                 </span>
-                <span className="bg-green-500 text-white px-2 py-1 rounded-md text-xs font-bold">
-                  {balance}
-                </span>
+                {userProfile && (
+                  <span className="bg-green-500 text-white px-2 py-1 rounded-md text-xs font-bold">
+                    {userProfile.points} pts
+                  </span>
+                )}
               </Link>
               <button 
                 onClick={handleSignOut}
