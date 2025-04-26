@@ -13,3 +13,12 @@ This doesn't really matter, but is useful for the AI to understand more about th
 - TailwindCSS
 - Firebase Auth, Storage, and Database
 - Multiple AI endpoints including OpenAI, Anthropic, and Replicate using Vercel's AI SDK
+
+## Deployment
+This project is now hosted on GitHub and can be deployed to Vercel or any other hosting provider that supports Next.js applications.
+
+To deploy to Vercel:
+1. Connect your GitHub repository to Vercel
+2. Vercel will automatically detect the Next.js project and configure the build settings
+3. Add any necessary environment variables in the Vercel dashboard
+4. Deploy!
