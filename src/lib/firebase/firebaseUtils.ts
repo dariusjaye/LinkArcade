@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase";
+import firebase, { auth, db, storage } from "./firebase";
 import {
   signOut,
   GoogleAuthProvider,
@@ -8,6 +8,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   User,
+  Auth,
 } from "firebase/auth";
 import {
   collection,
@@ -30,16 +31,46 @@ import {
   Timestamp,
   onSnapshot,
   writeBatch,
+  Firestore,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject, FirebaseStorage } from "firebase/storage";
+
+// Helper function to get safe Auth instance
+const getAuthInstance = (): Auth => {
+  if (!firebase.safeAuth) {
+    throw new Error("Firebase Auth is not initialized");
+  }
+  return firebase.auth; // This will use the non-null getter
+};
+
+// Helper function to get safe Firestore instance
+const getFirestoreInstance = (): Firestore => {
+  if (!firebase.safeDb) {
+    throw new Error("Firebase Firestore is not initialized");
+  }
+  return firebase.db; // This will use the non-null getter
+};
+
+// Helper function to get safe Storage instance
+const getStorageInstance = (): FirebaseStorage => {
+  if (!firebase.safeStorage) {
+    throw new Error("Firebase Storage is not initialized");
+  }
+  return firebase.storage; // This will use the non-null getter
+};
 
 // Auth functions
-export const logoutUser = () => signOut(auth);
+export const logoutUser = async () => {
+  const authInstance = getAuthInstance();
+  return signOut(authInstance);
+};
 
 export const signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
+  const authInstance = getAuthInstance();
+  
   try {
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(authInstance, provider);
     return result.user;
   } catch (error) {
     console.error("Error signing in with Google", error);
@@ -48,8 +79,10 @@ export const signInWithGoogle = async () => {
 };
 
 export const signUpWithEmail = async (email: string, password: string, displayName: string) => {
+  const authInstance = getAuthInstance();
+  
   try {
-    const { user } = await createUserWithEmailAndPassword(auth, email, password);
+    const { user } = await createUserWithEmailAndPassword(authInstance, email, password);
     await updateProfile(user, { displayName });
     return user;
   } catch (error) {
@@ -59,8 +92,10 @@ export const signUpWithEmail = async (email: string, password: string, displayNa
 };
 
 export const signInWithEmailAndPassword = async (email: string, password: string) => {
+  const authInstance = getAuthInstance();
+  
   try {
-    const result = await firebaseSignInWithEmailAndPassword(auth, email, password);
+    const result = await firebaseSignInWithEmailAndPassword(authInstance, email, password);
     return result.user;
   } catch (error) {
     console.error("Error signing in with email and password", error);
@@ -69,8 +104,10 @@ export const signInWithEmailAndPassword = async (email: string, password: string
 };
 
 export const resetPassword = async (email: string) => {
+  const authInstance = getAuthInstance();
+  
   try {
-    await sendPasswordResetEmail(auth, email);
+    await sendPasswordResetEmail(authInstance, email);
   } catch (error) {
     console.error("Error sending password reset email", error);
     throw error;
@@ -79,8 +116,10 @@ export const resetPassword = async (email: string) => {
 
 // Firestore functions
 export const addDocument = async <T extends {}>(collectionName: string, data: T) => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    const docRef = await addDoc(collection(db, collectionName), {
+    const docRef = await addDoc(collection(firestoreInstance, collectionName), {
       ...data,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -93,8 +132,10 @@ export const addDocument = async <T extends {}>(collectionName: string, data: T)
 };
 
 export const setDocument = async <T extends {}>(collectionName: string, id: string, data: T) => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    await setDoc(doc(db, collectionName, id), {
+    await setDoc(doc(firestoreInstance, collectionName, id), {
       ...data,
       updatedAt: serverTimestamp(),
     }, { merge: true });
@@ -117,8 +158,10 @@ export const getDocuments = async <T = DocumentData>(
     startAfterId?: string;
   }
 ): Promise<Array<T & { id: string }>> => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    let collectionRef = collection(db, collectionName);
+    let collectionRef = collection(firestoreInstance, collectionName);
     let q = query(collectionRef);
     
     if (options) {
@@ -137,7 +180,7 @@ export const getDocuments = async <T = DocumentData>(
       }
       
       if (options.startAfterId && options.orderByField) {
-        const startAfterDoc = await getDoc(doc(db, collectionName, options.startAfterId));
+        const startAfterDoc = await getDoc(doc(firestoreInstance, collectionName, options.startAfterId));
         if (startAfterDoc.exists()) {
           constraints.push(startAfter(startAfterDoc));
         }
@@ -163,8 +206,10 @@ export const getDocumentById = async <T = DocumentData>(
   collectionName: string,
   id: string
 ): Promise<(T & { id: string }) | null> => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    const docRef = doc(db, collectionName, id);
+    const docRef = doc(firestoreInstance, collectionName, id);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
@@ -182,8 +227,10 @@ export const getDocumentById = async <T = DocumentData>(
 };
 
 export const updateDocument = async (collectionName: string, id: string, data: Partial<any>) => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    const docRef = doc(db, collectionName, id);
+    const docRef = doc(firestoreInstance, collectionName, id);
     await updateDoc(docRef, {
       ...data,
       updatedAt: serverTimestamp(),
@@ -201,8 +248,10 @@ export const incrementField = async (
   field: string,
   value: number = 1
 ) => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    const docRef = doc(db, collectionName, id);
+    const docRef = doc(firestoreInstance, collectionName, id);
     await updateDoc(docRef, {
       [field]: increment(value),
       updatedAt: serverTimestamp(),
@@ -215,8 +264,10 @@ export const incrementField = async (
 };
 
 export const deleteDocument = async (collectionName: string, id: string) => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    await deleteDoc(doc(db, collectionName, id));
+    await deleteDoc(doc(firestoreInstance, collectionName, id));
     return id;
   } catch (error) {
     console.error(`Error deleting document ${id} from ${collectionName}`, error);
@@ -229,7 +280,9 @@ export const subscribeToDocument = <T = DocumentData>(
   id: string,
   callback: (data: (T & { id: string }) | null) => void
 ) => {
-  const docRef = doc(db, collectionName, id);
+  const firestoreInstance = getFirestoreInstance();
+  
+  const docRef = doc(firestoreInstance, collectionName, id);
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
       callback({
@@ -256,7 +309,9 @@ export const subscribeToCollection = <T = DocumentData>(
     limitTo?: number;
   }
 ) => {
-  let collectionRef = collection(db, collectionName);
+  const firestoreInstance = getFirestoreInstance();
+  
+  let collectionRef = collection(firestoreInstance, collectionName);
   let q = query(collectionRef);
   
   if (options) {
@@ -280,11 +335,14 @@ export const subscribeToCollection = <T = DocumentData>(
   }
   
   return onSnapshot(q, (querySnapshot) => {
-    const documents = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as T & { id: string }));
-    callback(documents);
+    const data: Array<T & { id: string }> = [];
+    querySnapshot.forEach((doc) => {
+      data.push({
+        id: doc.id,
+        ...doc.data()
+      } as T & { id: string });
+    });
+    callback(data);
   }, (error) => {
     console.error(`Error subscribing to collection ${collectionName}`, error);
   });
@@ -298,23 +356,25 @@ export const batchUpdate = async (
     data?: any;
   }>
 ) => {
+  const firestoreInstance = getFirestoreInstance();
+  
   try {
-    const batch = writeBatch(db);
+    const batch = writeBatch(firestoreInstance);
     
-    operations.forEach((operation) => {
-      const docRef = doc(db, operation.collectionName, operation.id);
+    operations.forEach(op => {
+      const docRef = doc(firestoreInstance, op.collectionName, op.id);
       
-      switch (operation.type) {
+      switch (op.type) {
         case 'set':
           batch.set(docRef, {
-            ...operation.data,
-            updatedAt: serverTimestamp(),
+            ...op.data,
+            updatedAt: serverTimestamp()
           }, { merge: true });
           break;
         case 'update':
           batch.update(docRef, {
-            ...operation.data,
-            updatedAt: serverTimestamp(),
+            ...op.data,
+            updatedAt: serverTimestamp()
           });
           break;
         case 'delete':
@@ -326,29 +386,33 @@ export const batchUpdate = async (
     await batch.commit();
     return true;
   } catch (error) {
-    console.error('Error performing batch update', error);
+    console.error("Error performing batch update", error);
     throw error;
   }
 };
 
-// Storage functions
+// Firebase Storage functions
 export const uploadFile = async (file: File, path: string): Promise<string> => {
+  const storageInstance = getStorageInstance();
+  
   try {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
-    return getDownloadURL(storageRef);
+    const storageRef = ref(storageInstance, path);
+    const snapshot = await uploadBytes(storageRef, file);
+    return await getDownloadURL(snapshot.ref);
   } catch (error) {
-    console.error('Error uploading file', error);
+    console.error("Error uploading file", error);
     throw error;
   }
 };
 
 export const deleteFile = async (path: string): Promise<void> => {
+  const storageInstance = getStorageInstance();
+  
   try {
-    const storageRef = ref(storage, path);
+    const storageRef = ref(storageInstance, path);
     await deleteObject(storageRef);
   } catch (error) {
-    console.error('Error deleting file', error);
+    console.error("Error deleting file", error);
     throw error;
   }
 };
