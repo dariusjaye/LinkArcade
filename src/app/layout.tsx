@@ -5,6 +5,7 @@ import React from "react";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { RewardProvider } from "@/lib/contexts/RewardContext";
 import { SiteSettingsProvider } from "@/lib/contexts/SiteSettingsContext";
+import { DataProvider } from "@/lib/contexts/DataContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,11 +23,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <RewardProvider>
-            <SiteSettingsProvider>
-              {children}
-            </SiteSettingsProvider>
-          </RewardProvider>
+          <DataProvider>
+            <RewardProvider>
+              <SiteSettingsProvider>
+                {children}
+              </SiteSettingsProvider>
+            </RewardProvider>
+          </DataProvider>
         </AuthProvider>
       </body>
     </html>

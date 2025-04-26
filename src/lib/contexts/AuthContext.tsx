@@ -1,18 +1,26 @@
 "use client";
 
 import React, { createContext, useEffect, useState } from "react";
-import { User } from "firebase/auth";
+import { User, onAuthStateChanged } from "firebase/auth";
+import { auth } from "../firebase/firebase";
+import { signInWithGoogle as firebaseSignInWithGoogle, logoutUser } from "../firebase/firebaseUtils";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { db } from "../firebase/firebase";
 
-// Create a mock User type matching Firebase User structure
-interface MockUser {
+// User profile interface that extends basic Firebase User data
+interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  points: number;
+  createdAt: number;
+  lastLogin: number;
 }
 
 interface AuthContextType {
-  user: MockUser | null;
+  user: User | null;
+  userProfile: UserProfile | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -21,58 +29,100 @@ interface AuthContextType {
 // Initial auth context value
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  userProfile: null,
   loading: true,
   signInWithGoogle: async () => {},
   signOut: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<MockUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Simulate auth loading
+  // Fetch or create user profile on user change
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchOrCreateUserProfile = async () => {
+      if (!user) {
+        setUserProfile(null);
+        return;
+      }
 
-  // Mock Google sign in
-  const signInWithGoogle = async () => {
-    // Create a mock user
-    const mockUser: MockUser = {
-      uid: "mock-user-123",
-      email: "user@example.com",
-      displayName: "Demo User",
-      photoURL: "https://ui-avatars.com/api/?name=Demo+User&background=random",
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          // User exists, get their profile
+          const userData = userDoc.data() as UserProfile;
+          
+          // Update last login time
+          await setDoc(userDocRef, { lastLogin: Date.now() }, { merge: true });
+          
+          setUserProfile(userData);
+        } else {
+          // Create new user profile
+          const newUserProfile: UserProfile = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            points: 0,
+            createdAt: Date.now(),
+            lastLogin: Date.now(),
+          };
+          
+          // Store user in Firestore
+          await setDoc(userDocRef, newUserProfile);
+          
+          setUserProfile(newUserProfile);
+        }
+      } catch (error) {
+        console.error("Error fetching or creating user profile:", error);
+      }
     };
-    
-    setUser(mockUser);
-    
-    // Store in local storage to persist between refreshes
-    localStorage.setItem("mockUser", JSON.stringify(mockUser));
-  };
 
-  // Check for existing user in localStorage on mount
+    fetchOrCreateUserProfile();
+  }, [user]);
+
+  // Setup auth state listener
   useEffect(() => {
-    const storedUser = localStorage.getItem("mockUser");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+      setUser(authUser);
+      setLoading(false);
+    });
+
+    // Cleanup subscription
+    return () => unsubscribe();
   }, []);
+
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    try {
+      await firebaseSignInWithGoogle();
+      // User state will be updated by the auth state listener
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+      throw error;
+    }
+  };
 
   // Sign out
   const signOutUser = async () => {
-    setUser(null);
-    localStorage.removeItem("mockUser");
+    try {
+      await logoutUser();
+      // User state will be updated by the auth state listener
+      setUserProfile(null);
+    } catch (error) {
+      console.error("Error signing out:", error);
+      throw error;
+    }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
+      userProfile,
       loading, 
       signInWithGoogle, 
       signOut: signOutUser 

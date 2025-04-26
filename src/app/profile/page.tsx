@@ -7,17 +7,22 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { useRewards } from '@/lib/hooks/useRewards';
+import UserStats from '@/components/UserStats';
+import LeaderboardTable from '@/components/LeaderboardTable';
+import Image from 'next/image';
 import { formatCurrency } from '@/lib/utils';
+import { useData } from '@/lib/contexts/DataContext';
+import { updateDocument } from '@/lib/firebase/firebaseUtils';
 
 export default function ProfilePage() {
-  const { user, loading: authLoading, signOut } = useAuth();
-  const { balance, formattedBalance, transactions } = useRewards();
+  const { user, userProfile, loading: authLoading, signOut } = useAuth();
+  const { userStats, userGamePlays, loadingUserStats, loadingUserGamePlays } = useData();
   const router = useRouter();
   
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [photoURL, setPhotoURL] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -35,27 +40,34 @@ export default function ProfilePage() {
     }
   }, [user]);
   
-  // Calculate stats
-  const totalWagered = transactions
-    .filter(t => t.type === 'loss')
-    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-    
-  const totalWon = transactions
-    .filter(t => t.type === 'win')
-    .reduce((sum, t) => sum + t.amount, 0);
-    
-  const gamesPlayed = transactions
-    .filter(t => t.type === 'loss' || t.type === 'win')
-    .length;
-    
-  const winRate = gamesPlayed > 0 
-    ? (transactions.filter(t => t.type === 'win').length / gamesPlayed) * 100 
-    : 0;
-    
   // Handle logout
   const handleLogout = async () => {
     await signOut();
     router.push('/');
+  };
+
+  // Handle profile update
+  const handleSaveChanges = async () => {
+    if (!user) return;
+    
+    try {
+      setIsSaving(true);
+      await updateDocument('users', user.uid, {
+        displayName: username,
+        photoURL: photoURL,
+      });
+      
+      // Also update any user entry in the leaderboard
+      if (userProfile && userProfile.points && userProfile.points > 0) {
+        // We'd need the leaderboard document ID which contains this user
+        // This would require a separate query in a real application
+      }
+      
+      setIsSaving(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setIsSaving(false);
+    }
   };
   
   if (authLoading) {
@@ -82,7 +94,13 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center mb-6">
               <div className="w-24 h-24 rounded-full bg-pink-600 flex items-center justify-center overflow-hidden mb-4">
                 {photoURL ? (
-                  <img src={photoURL} alt={username} className="w-full h-full object-cover" />
+                  <Image 
+                    src={photoURL} 
+                    alt={username} 
+                    width={96} 
+                    height={96} 
+                    className="w-full h-full object-cover" 
+                  />
                 ) : (
                   <span className="text-3xl">{username.charAt(0)}</span>
                 )}
@@ -93,8 +111,8 @@ export default function ProfilePage() {
             
             <div className="border-t border-gray-700 pt-6 mb-6">
               <div className="flex justify-between items-center mb-4">
-                <span className="text-gray-400">Balance</span>
-                <span className="text-xl font-bold">{formattedBalance}</span>
+                <span className="text-gray-400">Points</span>
+                <span className="text-xl font-bold">{userProfile?.points?.toLocaleString() || 0}</span>
               </div>
               <Link href="/rewards" className="block w-full">
                 <Button variant="default" className="w-full">
@@ -112,25 +130,8 @@ export default function ProfilePage() {
           
           {/* Stats Cards */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Summary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-400 mb-1">Total Wagered</p>
-                <p className="text-xl font-bold">{formatCurrency(totalWagered)}</p>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-400 mb-1">Total Won</p>
-                <p className="text-xl font-bold">{formatCurrency(totalWon)}</p>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-400 mb-1">Games Played</p>
-                <p className="text-xl font-bold">{gamesPlayed}</p>
-              </div>
-              <div className="bg-gray-800 rounded-lg p-4">
-                <p className="text-sm text-gray-400 mb-1">Win Rate</p>
-                <p className="text-xl font-bold">{winRate.toFixed(1)}%</p>
-              </div>
-            </div>
+            {/* User Stats */}
+            <UserStats />
             
             {/* Account Settings */}
             <div className="bg-gray-800 rounded-lg p-6">
@@ -179,54 +180,48 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="pt-4">
-                  <Button variant="default">
-                    Save Changes
+                  <Button 
+                    variant="default" 
+                    onClick={handleSaveChanges}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
                   </Button>
                 </div>
               </div>
             </div>
             
-            {/* Privacy Settings */}
+            {/* Recent Activity */}
             <div className="bg-gray-800 rounded-lg p-6">
-              <h2 className="text-xl font-bold mb-4">Privacy Settings</h2>
+              <h2 className="text-xl font-bold mb-4">Recent Activity</h2>
               
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Show me on leaderboard</h3>
-                    <p className="text-sm text-gray-400">Allow your username and stats to appear on the leaderboard</p>
-                  </div>
-                  <div className="relative inline-block w-12 h-6 rounded-full bg-gray-700">
-                    <input type="checkbox" className="peer sr-only" id="show-leaderboard" defaultChecked />
-                    <span className="absolute inset-0 peer-checked:bg-pink-600 rounded-full transition"></span>
-                    <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition peer-checked:translate-x-6"></span>
-                  </div>
+              {loadingUserGamePlays ? (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-4 bg-gray-700 rounded w-5/6"></div>
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Email notifications</h3>
-                    <p className="text-sm text-gray-400">Receive email updates about new games and promotions</p>
-                  </div>
-                  <div className="relative inline-block w-12 h-6 rounded-full bg-gray-700">
-                    <input type="checkbox" className="peer sr-only" id="email-notifications" defaultChecked />
-                    <span className="absolute inset-0 peer-checked:bg-pink-600 rounded-full transition"></span>
-                    <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition peer-checked:translate-x-6"></span>
-                  </div>
+              ) : userGamePlays.length > 0 ? (
+                <div className="space-y-3">
+                  {userGamePlays.slice(0, 5).map((gamePlay) => (
+                    <div key={gamePlay.id} className="flex justify-between items-center p-3 bg-gray-700 rounded-lg">
+                      <div>
+                        <p className="font-medium">{gamePlay.outcome === 'win' ? 'Won' : 'Lost'} game</p>
+                        <p className="text-sm text-gray-400">
+                          {new Date(gamePlay.createdAt?.toMillis()).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className={gamePlay.outcome === 'win' ? 'text-green-500' : 'text-red-500'}>
+                        {gamePlay.outcome === 'win' 
+                          ? `+${gamePlay.winAmount.toLocaleString()}` 
+                          : `-${gamePlay.bet.toLocaleString()}`} pts
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Public profile</h3>
-                    <p className="text-sm text-gray-400">Allow other users to view your profile</p>
-                  </div>
-                  <div className="relative inline-block w-12 h-6 rounded-full bg-gray-700">
-                    <input type="checkbox" className="peer sr-only" id="public-profile" />
-                    <span className="absolute inset-0 peer-checked:bg-pink-600 rounded-full transition"></span>
-                    <span className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition peer-checked:translate-x-6"></span>
-                  </div>
-                </div>
-              </div>
+              ) : (
+                <p className="text-gray-400">No recent activity found.</p>
+              )}
             </div>
           </div>
         </div>
