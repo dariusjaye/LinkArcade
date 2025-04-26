@@ -1,7 +1,15 @@
 "use client";
 
-import { db } from "./firebase";
-import { collection, getDocs, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import firebase, { db } from "./firebase";
+import { collection, getDocs, doc, setDoc, serverTimestamp, Firestore } from "firebase/firestore";
+
+// Helper function to get safe Firestore instance
+const getFirestoreInstance = (): Firestore => {
+  if (!firebase.safeDb) {
+    throw new Error("Firebase Firestore is not initialized");
+  }
+  return firebase.db; // This will use the non-null getter
+};
 
 /**
  * Initialize all Firestore collections with sample data
@@ -11,8 +19,11 @@ export const initializeAllCollections = async () => {
   console.log("Initializing all Firestore collections with sample data...");
   
   try {
+    // Get a non-null Firestore instance
+    const firestoreDb = getFirestoreInstance();
+    
     // Initialize users collection
-    const usersSnapshot = await getDocs(collection(db, "users"));
+    const usersSnapshot = await getDocs(collection(firestoreDb, "users"));
     if (usersSnapshot.empty) {
       // Add sample users
       const users = [
@@ -43,13 +54,13 @@ export const initializeAllCollections = async () => {
       ];
       
       for (let i = 0; i < users.length; i++) {
-        await setDoc(doc(db, "users", `user-${i+1}`), users[i]);
+        await setDoc(doc(firestoreDb, "users", `user-${i+1}`), users[i]);
         console.log(`Added user: ${users[i].displayName}`);
       }
     }
     
     // Initialize games collection
-    const gamesSnapshot = await getDocs(collection(db, "games"));
+    const gamesSnapshot = await getDocs(collection(firestoreDb, "games"));
     if (gamesSnapshot.empty) {
       // Add sample games
       const games = [
@@ -95,13 +106,13 @@ export const initializeAllCollections = async () => {
       ];
       
       for (let i = 0; i < games.length; i++) {
-        await setDoc(doc(db, "games", `game-${i+1}`), games[i]);
+        await setDoc(doc(firestoreDb, "games", `game-${i+1}`), games[i]);
         console.log(`Added game: ${games[i].name}`);
       }
     }
     
     // Initialize gamePlays collection
-    const gamePlaysSnapshot = await getDocs(collection(db, "gamePlays"));
+    const gamePlaysSnapshot = await getDocs(collection(firestoreDb, "gamePlays"));
     if (gamePlaysSnapshot.empty) {
       // Add sample game plays
       const gamePlays = [
@@ -132,13 +143,13 @@ export const initializeAllCollections = async () => {
       ];
       
       for (let i = 0; i < gamePlays.length; i++) {
-        await setDoc(doc(db, "gamePlays", `gamePlay-${i+1}`), gamePlays[i]);
+        await setDoc(doc(firestoreDb, "gamePlays", `gamePlay-${i+1}`), gamePlays[i]);
         console.log(`Added game play for user ${gamePlays[i].userId} on game ${gamePlays[i].gameId}`);
       }
     }
     
     // Initialize userStats collection
-    const userStatsSnapshot = await getDocs(collection(db, "userStats"));
+    const userStatsSnapshot = await getDocs(collection(firestoreDb, "userStats"));
     if (userStatsSnapshot.empty) {
       // Add sample user stats
       const userStats = [
@@ -172,13 +183,13 @@ export const initializeAllCollections = async () => {
       ];
       
       for (let i = 0; i < userStats.length; i++) {
-        await setDoc(doc(db, "userStats", userStats[i].userId), userStats[i]);
+        await setDoc(doc(firestoreDb, "userStats", userStats[i].userId), userStats[i]);
         console.log(`Added stats for user: ${userStats[i].userId}`);
       }
     }
     
     // Initialize leaderboard collection
-    const leaderboardSnapshot = await getDocs(collection(db, "leaderboard"));
+    const leaderboardSnapshot = await getDocs(collection(firestoreDb, "leaderboard"));
     if (leaderboardSnapshot.empty) {
       const leaderboard = [
         {
@@ -205,13 +216,13 @@ export const initializeAllCollections = async () => {
       ];
       
       for (let i = 0; i < leaderboard.length; i++) {
-        await setDoc(doc(db, "leaderboard", `leaderboard-${i+1}`), leaderboard[i]);
+        await setDoc(doc(firestoreDb, "leaderboard", `leaderboard-${i+1}`), leaderboard[i]);
         console.log(`Added leaderboard entry: ${leaderboard[i].displayName}`);
       }
     }
     
     // Initialize rewards collection
-    const rewardsSnapshot = await getDocs(collection(db, "rewards"));
+    const rewardsSnapshot = await getDocs(collection(firestoreDb, "rewards"));
     if (rewardsSnapshot.empty) {
       // Add sample rewards
       const rewards = [
@@ -247,13 +258,13 @@ export const initializeAllCollections = async () => {
       ];
       
       for (let i = 0; i < rewards.length; i++) {
-        await setDoc(doc(db, "rewards", `reward-${i+1}`), rewards[i]);
+        await setDoc(doc(firestoreDb, "rewards", `reward-${i+1}`), rewards[i]);
         console.log(`Added reward: ${rewards[i].name}`);
       }
     }
     
     // Initialize userRewards collection
-    const userRewardsSnapshot = await getDocs(collection(db, "userRewards"));
+    const userRewardsSnapshot = await getDocs(collection(firestoreDb, "userRewards"));
     if (userRewardsSnapshot.empty) {
       // Add sample user rewards
       const userRewards = [
@@ -281,7 +292,7 @@ export const initializeAllCollections = async () => {
       ];
       
       for (let i = 0; i < userRewards.length; i++) {
-        await setDoc(doc(db, "userRewards", `userReward-${i+1}`), userRewards[i]);
+        await setDoc(doc(firestoreDb, "userRewards", `userReward-${i+1}`), userRewards[i]);
         console.log(`Added user reward for user ${userRewards[i].userId}: ${userRewards[i].rewardId}`);
       }
     }
