@@ -518,10 +518,10 @@ export default function GamesManagementStandalone() {
                     type="text"
                     name="multiplier"
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white"
-                    value={formData.multiplier}
+                    value={formData?.multiplier}
                     onChange={handleInputChange}
                   />
-                  <p className="mt-1 text-xs text-gray-500">Example: "2x" or "Up to 36x"</p>
+                  <p className="mt-1 text-xs text-gray-500">Example: &quot;2x&quot; or &quot;Up to 36x&quot;</p>
                 </div>
                 
                 <div className="flex items-center space-x-4">

@@ -184,7 +184,7 @@ export default function GameEditor({ game, onSave, onCancel }: GameEditorProps) 
                 value={formData.multiplier}
                 onChange={handleInputChange}
               />
-              <p className="mt-1 text-xs text-gray-500">Example: "2x" or "Up to 36x"</p>
+              <p className="mt-1 text-xs text-gray-500">Example: &quot;2x&quot; or &quot;Up to 36x&quot;</p>
             </div>
             
             <div className="flex items-center space-x-4">
