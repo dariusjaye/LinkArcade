@@ -533,7 +533,7 @@ export default function CrashPage() {
               <h3 className="font-medium text-white mb-2">How to Play</h3>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Enter your bet amount</li>
-                <li>Click "Start Game" to begin</li>
+                <li>Click &quot;Start Game&quot; to begin</li>
                 <li>Watch the multiplier increase</li>
                 <li>Cash out before the game crashes</li>
                 <li>The longer you wait, the more you win!</li>

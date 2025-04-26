@@ -646,7 +646,7 @@ const CrackTheCode: React.FC = () => {
               <div className="text-center py-8">
                 <h2 className="text-2xl font-bold mb-4">How to Play</h2>
                 <p className="text-gray-300 mb-6">
-                  Try to guess the secret 4-digit code. After each guess, you'll get feedback on:
+                  Try to guess the secret 4-digit code. After each guess, you&apos;ll get feedback on:
                 </p>
                 <ul className="space-y-3 text-left max-w-md mx-auto mb-8">
                   <li className="flex items-center">
@@ -959,14 +959,17 @@ const CrackTheCode: React.FC = () => {
             {/* Restart Button */}
             {isPlaying && (
               <Button 
-                variant="destructive" 
+                variant="danger" 
                 className="w-full" 
                 onClick={() => {
                   if (confirm("Are you sure you want to forfeit this game? Your bet will be lost.")) {
                     setIsPlaying(false);
                     setGameResult('lost');
+                    setRemainingGuesses(0);
+                    handleLoss();
                   }
                 }}
+                disabled={!!gameResult}
               >
                 Forfeit Game
               </Button>

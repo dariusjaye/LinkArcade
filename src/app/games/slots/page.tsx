@@ -873,7 +873,7 @@ export default function SlotsPage() {
               <h3 className="font-medium text-white mb-2">How to Play</h3>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Enter your bet amount</li>
-                <li>Click "Spin" to begin</li>
+                <li>Click &quot;Spin&quot; to begin</li>
                 <li>Match 3 identical symbols in a row to win</li>
                 <li>Different symbols have different payouts</li>
                 <li>Win on multiple lines for bigger prizes!</li>

@@ -1037,7 +1037,7 @@ export default function GamesManagementStandalone() {
                           <option value="true">Visible</option>
                           <option value="false">Hidden</option>
                         </select>
-                        <p className="mt-1 text-xs text-gray-500">Show the coin's edge for a 3D effect</p>
+                        <p className="mt-1 text-xs text-gray-500">Show the coin&apos;s edge for a 3D effect</p>
                       </div>
                       
                       <div>
