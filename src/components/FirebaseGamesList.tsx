@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { collection, query, onSnapshot, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { collection, query, onSnapshot, where, Firestore } from 'firebase/firestore';
+import firebase, { db } from '@/lib/firebase/firebase';
 
 // Game interface
 interface Game {
@@ -29,8 +29,22 @@ export default function FirebaseGamesList() {
   const [filter, setFilter] = useState<string>('all');
 
   useEffect(() => {
-    // Create a query against the games collection
-    const q = query(collection(db, "games"));
+    // Check if Firestore is available
+    if (!firebase.safeDb) {
+      console.error("Firestore is not available");
+      setLoading(false);
+      
+      // Fall back to local storage if Firebase is not available
+      const storedGames = localStorage.getItem('adminGameSettings');
+      if (storedGames) {
+        setGames(JSON.parse(storedGames));
+      }
+      return () => {}; // Return empty cleanup function
+    }
+    
+    // Create a query against the games collection with the safely typed Firestore instance
+    const firestoreDb = firebase.db;
+    const q = query(collection(firestoreDb, "games"));
     
     // Listen for real-time updates
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
